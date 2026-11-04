@@ -1,0 +1,12 @@
+{
+  "name": "", "phone": "", "phone_display": "", "site_url": "", "logo": "",
+  "identity_verified": false, "services_verified": false,
+  "hours_text": "", "hours_verified": false,
+  "response_time_text": "", "response_time_verified": false,
+  "pricing_text": "", "pricing_verified": false,
+  "experience_text": "", "experience_verified": false,
+  "qualifications": [], "insurance_text": "", "insurance_verified": false,
+  "legal_text": "", "legal_verified": false,
+  "address": null, "address_verified": false,
+  "description": "Dépannage électrique, recherche de panne et mise en sécurité des installations autour de Nogent-sur-Marne et du Perreux-sur-Marne."
+}

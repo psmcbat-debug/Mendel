@@ -1,0 +1,14 @@
+{
+  "kind": "article",
+  "slug": "comprendre-une-coupure-electrique",
+  "status": "draft",
+  "title": "Une coupure de courant : les informations à préparer",
+  "meta_title": "Coupure de courant : préparer une demande de dépannage",
+  "description": "Adresse, étendue de la coupure, appareils concernés : les informations utiles avant de demander un diagnostic électrique.",
+  "intro": "Une description précise aide à orienter une demande de dépannage. Voici les informations à rassembler sans intervenir sur l’installation.",
+  "sections": [
+    {"title": "Décrire ce qui ne fonctionne plus", "paragraphs": ["Notez si la coupure concerne tout le logement, une pièce ou un appareil. Demandez si les voisins sont également touchés, sans accéder aux équipements communs."]},
+    {"title": "Préparer l’échange avec le professionnel", "paragraphs": ["Donnez votre adresse exacte, l’accès au bâtiment et les circonstances de la panne. Faites confirmer la disponibilité, le prix du déplacement et les modalités du devis.", "En présence d’un signe de danger, restez à distance. Ne démontez pas d’appareillage et ne forcez pas une protection à rester enclenchée."]}
+  ],
+  "editorial_verified": false
+}
