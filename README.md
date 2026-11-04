@@ -2,6 +2,16 @@
 
 Site PHP 8.3+, rendu serveur, sans dépendances front-end, compatible MySQL via PDO. Prévisualisation locale sur SQLite.
 
+## Continuer le projet depuis un PC ou un iPhone
+
+Le prompt de reprise se trouve à la racine du dépôt : **[CONTINUER-LE-PROJET.md](CONTINUER-LE-PROJET.md)**.
+
+Ouvrez ce fichier et copiez le bloc « Prompt à copier-coller » dans une nouvelle conversation avec un assistant ayant accès en lecture et en écriture à ce dépôt GitHub. Il décrit le projet, les priorités SEO, les vérifications et les règles de publication.
+
+Sur PC, vous pouvez aussi cloner le dépôt et ouvrir le dossier dans votre outil de développement. Sur iPhone, utilisez une conversation disposant d’un environnement de travail et de l’accès GitHub ; le téléphone seul n’exécute pas les tests PHP.
+
+GitHub conserve les fichiers : **ajouter un prompt ne déclenche aucun travail automatique**. Une modification sur GitHub ne met pas automatiquement à jour le site ou la base Hostinger. Le déploiement et la publication de contenus sont des étapes distinctes.
+
 ## État du projet
 
 15 pages locales rédigées (environ 700 à 730 mots chacune), administration, API d’articles et sitemap dynamique. Toutes les pages sont livrées en brouillon. Le nom, le téléphone, les horaires, les tarifs, les mentions légales et les zones desservies restent à confirmer. Aucun avis ni chantier fictif.
