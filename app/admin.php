@@ -2,6 +2,7 @@
 start_session();
 header('X-Robots-Tag: noindex, nofollow');
 require ROOT.'/app/view.php';
+require ROOT.'/app/editor.php';
 $message=''; $error='';
 if ($_SERVER['REQUEST_METHOD']==='POST') {
     require_csrf();
@@ -32,13 +33,21 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
                 save_company($c); $message='Paramètres enregistrés. Les pages non conformes restent hors publication.';
             }
             if ($action==='save_page') {
-                if (strlen($_POST['payload']??'')>131072) throw new RuntimeException('Contenu trop volumineux.');
-                $p=json_decode($_POST['payload']??'',true,32,JSON_THROW_ON_ERROR);
+                $original=(string)($_POST['original_slug']??'');
+                if (($_POST['editor_mode']??'')==='simple') {
+                    $base=$original?page($original):['kind'=>($_POST['kind']??'')==='city'?'city':'article','sources'=>[]];
+                    if (!$base) throw new RuntimeException('Le contenu à modifier n’existe plus.');
+                    $p=editor_page($_POST,$base);
+                } else {
+                    if (!is_string($_POST['payload']??null) || strlen($_POST['payload'])>131072) throw new RuntimeException('Contenu trop volumineux ou invalide.');
+                    $p=json_decode($_POST['payload'],true,32,JSON_THROW_ON_ERROR);
+                }
                 if (!is_array($p)) throw new RuntimeException('Objet JSON requis.');
+                if (strlen(json_encode($p,JSON_THROW_ON_ERROR))>131072) throw new RuntimeException('Contenu trop volumineux.');
                 $p['status']=($_POST['status']??'draft')==='published'?'published':'draft';
+                if (($_POST['editor_mode']??'')==='simple') $editor_draft=$p;
                 $errors=page_errors($p);
                 if ($errors) throw new RuntimeException(implode(' ',$errors));
-                $original=(string)($_POST['original_slug']??'');
                 if ($original && $original!==$p['slug']) throw new RuntimeException('Le slug d’un contenu existant ne doit pas être modifié.');
                 $existing=page($p['slug']);
                 if (!$original && $existing) throw new RuntimeException('Ce slug existe déjà. Ouvrez sa fiche pour le modifier.');
@@ -50,7 +59,7 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
     } else { http_response_code(403); $error='Session expirée. Reconnectez-vous.'; }
 }
 if (admin()) $_SESSION['last']=time();
-?><!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Administration · Électricien</title><link rel="stylesheet" href="/assets/site.css"></head><body><main class="admin" id="main">
+?><!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Administration · Électricien</title><link rel="stylesheet" href="/assets/site.css"><link rel="stylesheet" href="/assets/admin-editor.css"><script src="/assets/admin-editor.js" defer></script></head><body><main class="admin" id="main">
 <?php if (!admin()): ?><div class="admin-card login"><span class="eyebrow">ESPACE PRIVÉ</span><h1>Votre site,<br>simplement.</h1><p>Connectez-vous pour gérer les pages et les informations de l’entreprise.</p><?php if ($error): ?><p class="notice error" role="alert"><?= e($error) ?></p><?php endif ?><?php if (!$config['admin_password_hash']): ?><p class="notice">Accès non configuré. Définissez le mot de passe administrateur dans le fichier privé de configuration. Consultez le guide d’installation.</p><?php else: ?><form method="post"><input type="hidden" name="csrf" value="<?= e(csrf()) ?>"><input type="hidden" name="action" value="login"><label for="password">Mot de passe</label><input type="password" id="password" name="password" autocomplete="current-password" required><button class="button" type="submit">Se connecter →</button></form><?php endif ?><p><a href="/">Retour au site</a></p></div>
 <?php else: $c=company(); ?><span class="eyebrow">ADMINISTRATION</span><h1>Votre présence locale.</h1><nav><a href="/admin/">Tableau de bord</a><a href="/admin/?settings=1">Entreprise</a><a href="/admin/?new=article">Nouvel article</a><a href="/admin/?new=city">Nouvelle ville</a><a href="/">Voir le site ↗</a></nav>
 <?php if ($message || isset($_GET['saved'])): ?><p class="notice" role="status"><?= e($message ?: 'Contenu enregistré en base de données.') ?></p><?php endif ?><?php if ($error): ?><p class="notice error" role="alert"><?= e($error) ?></p><?php endif ?>
@@ -62,8 +71,10 @@ foreach ($labels as $key=>$label): ?><label for="<?= e($key) ?>"><?= e($label) ?
 $p=isset($_GET['edit'])?page((string)$_GET['edit']):null;
 if (!$p) $p=['kind'=>($_GET['new']??'article')==='city'?'city':'article','slug'=>'nouveau-conseil','status'=>'draft','title'=>'Titre du conseil','meta_title'=>'Titre SEO du conseil','description'=>'Description utile pour les résultats de recherche.','intro'=>'Introduction du conseil.','sections'=>[['title'=>'Première section','paragraphs'=>['Rédigez votre contenu ici.']]],'faq'=>[],'editorial_verified'=>false];
 if ($p['kind']==='city' && !isset($p['city'])) $p+=['city'=>'Ville','postal_code'=>'00000','districts'=>[],'verified_districts'=>[],'coverage_verified'=>false,'coverage_evidence'=>'','neighbors'=>[],'local_note'=>'','sources'=>[]];
+if (isset($editor_draft)) $p=$editor_draft;
+$advanced=isset($_GET['advanced']) && !isset($editor_draft);
 $problems=publication_errors($p,$c);
-?><form method="post" class="admin-card"><h2><?= e($p['title']) ?></h2><p><?= $p['kind']==='city'?words(content_text($p)).' mots · objectif : 600 à 1 000 mots.':'Article stocké dans la base de données.' ?></p><?php if ($problems): ?><div class="notice"><strong>À compléter avant publication</strong><ul><?php foreach ($problems as $problem): ?><li><?= e($problem) ?></li><?php endforeach ?></ul></div><?php endif ?><p>Éditez le contenu structuré ci-dessous. Aucun HTML n’est exécuté. Pour une ville, renseignez <code>verified_districts</code>, <code>coverage_evidence</code> et les validations. Les emplacements <code>review</code> et <code>photo</code> sont prévus pour des preuves authentiques.</p><input type="hidden" name="csrf" value="<?= e(csrf()) ?>"><input type="hidden" name="action" value="save_page"><input type="hidden" name="original_slug" value="<?= e($_GET['edit']??'') ?>"><label for="payload">Contenu JSON</label><textarea class="code" id="payload" name="payload" spellcheck="false" required><?= e($error && isset($_POST['payload'])?$_POST['payload']:json_encode($p,JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)) ?></textarea><label for="status">Statut</label><select id="status" name="status"><option value="draft">Brouillon — privé</option><option value="published" <?= $p['status']==='published'?'selected':'' ?>>Publié — sous réserve de validation</option></select><div class="admin-actions"><button class="button">Enregistrer</button><?php if (isset($_GET['edit'])): ?><a href="<?= e(page_url($p)) ?>">Prévisualiser ↗</a><?php endif ?></div></form>
+?><form method="post" class="admin-card"><h2><?= e($p['title']) ?></h2><p><?= $p['kind']==='city'?words(content_text($p)).' mots · objectif : 600 à 1 000 mots.':'Article stocké dans la base de données.' ?></p><?php if ($problems): ?><div class="notice"><strong>À compléter avant publication</strong><ul><?php foreach ($problems as $problem): ?><li><?= e($problem) ?></li><?php endforeach ?></ul></div><?php endif ?><p><?php if (isset($_GET['edit'])): ?><a href="/admin/?edit=<?= e($p['slug']) ?><?= $advanced?'':'&amp;advanced=1' ?>"><?= $advanced?'Éditeur simple':'Mode avancé (JSON)' ?></a> · <?php endif ?>Le changement de mode recharge la version enregistrée. Enregistrez vos modifications avant de changer de mode.</p><input type="hidden" name="csrf" value="<?= e(csrf()) ?>"><input type="hidden" name="action" value="save_page"><input type="hidden" name="original_slug" value="<?= e($_GET['edit']??'') ?>"><?php if ($advanced): ?><label for="payload">Contenu JSON</label><textarea class="code" id="payload" name="payload" spellcheck="false" required><?= e($error && isset($_POST['payload'])?$_POST['payload']:json_encode($p,JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)) ?></textarea><?php else: editor_fields($p); endif ?><label for="status">Statut</label><select id="status" name="status"><option value="draft">Brouillon — privé</option><option value="published" <?= $p['status']==='published'?'selected':'' ?>>Publié — sous réserve de validation</option></select><div class="admin-actions"><button class="button">Enregistrer</button><?php if (isset($_GET['edit'])): ?><a href="<?= e(page_url($p)) ?>">Prévisualiser ↗</a><?php endif ?></div></form>
 <?php else: ?><div class="admin-card"><h2>Préparation de la publication</h2><?php $errors=company_errors($c); if ($errors): ?><ul><?php foreach ($errors as $item): ?><li><?= e($item) ?></li><?php endforeach ?></ul><a href="/admin/?settings=1">Compléter l’entreprise →</a><?php else: ?><p>Les informations générales sont validées. Confirmez la couverture et la relecture de chaque page avant publication.</p><?php endif ?></div>
 <?php foreach (['city'=>'Pages locales','article'=>'Articles'] as $kind=>$label): ?><section class="admin-card"><h2><?= e($label) ?></h2><div class="table-scroll"><table><thead><tr><th>Contenu</th><th>État effectif</th><th>Mots</th><th>Actions</th></tr></thead><tbody><?php foreach (pages($kind) as $p): ?><tr><td><?= e($p['title']) ?></td><td><span class="badge"><?= live($p,$c)?'Publié':($p['status']==='published'?'Publication suspendue':'Brouillon') ?></span></td><td><?= words(content_text($p)) ?></td><td><a href="/admin/?edit=<?= e($p['slug']) ?>">Modifier</a> · <a href="<?= e(page_url($p)) ?>">Voir</a></td></tr><?php endforeach ?></tbody></table></div></section><?php endforeach ?><div class="admin-card"><h2>Publication à distance</h2><p>API : <code>POST /api/v1/articles</code>. Le jeton privé se configure côté serveur ; il n’apparaît jamais ici. Les articles arrivent en brouillon sauf demande explicite de publication avec validation éditoriale.</p></div><?php endif ?>
 <form method="post"><input type="hidden" name="csrf" value="<?= e(csrf()) ?>"><input type="hidden" name="action" value="logout"><button class="button">Se déconnecter</button></form><?php endif ?></main></body></html>

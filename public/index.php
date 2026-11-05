@@ -57,7 +57,13 @@ try {
             head($c,$p['meta_title'],$p['description'],$path,live($p,$c),$schema);
             echo '<main id="main"><div class="wrap page-title"><span class="eyebrow">CONSEILS ÉLECTRICITÉ</span><h1>'.e($p['title']).'</h1><p>'.e($p['intro']).'</p></div><article class="wrap prose">';
             foreach ($p['sections'] as $s) { echo '<h2>'.e($s['title']).'</h2>'; foreach ($s['paragraphs'] as $para) echo '<p>'.e($para).'</p>'; }
-            echo '</article></main>'; foot($c); exit;
+            echo '</article>';
+            if (!empty($p['faq'])) {
+                echo '<section class="faq wrap"><div><span class="eyebrow">POUR ALLER PLUS LOIN</span><h2>Vos questions.</h2></div><div>';
+                foreach ($p['faq'] as $q) echo '<details><summary>'.e($q['question']).'<span aria-hidden="true">+</span></summary><p>'.e($q['answer']).'</p></details>';
+                echo '</div></section>';
+            }
+            echo '</main>'; foot($c); exit;
         }
     }
     if (in_array($path,['/mentions-legales/','/confidentialite/'],true)) {

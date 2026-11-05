@@ -16,7 +16,17 @@ GitHub conserve les fichiers : **ajouter un prompt ne déclenche aucun travail a
 
 15 pages locales rédigées (environ 700 à 730 mots chacune), administration, API d’articles et sitemap dynamique. Toutes les pages sont livrées en brouillon. Le nom, le téléphone, les horaires, les tarifs, les mentions légales et les zones desservies restent à confirmer. Aucun avis ni chantier fictif.
 
-196 contrôles d’intégration ont passé sur SQLite, notamment les routes, les métadonnées, les appels, les données structurées, la protection des brouillons, l’API et les sessions. MySQL, HTTPS, les réécritures et les performances réelles doivent encore être vérifiés sur Hostinger.
+210 contrôles d’intégration ont passé sur SQLite, notamment les routes, les métadonnées, les appels, les données structurées, la protection des brouillons, l’API, les sessions et l’éditeur simple. MySQL, HTTPS, les réécritures et les performances réelles doivent encore être vérifiés sur Hostinger.
+
+### Administration : éditeur simple (5 novembre 2026)
+
+Les pages et articles s’éditent avec des champs pour le titre, l’adresse, les métadonnées SEO, l’introduction, les sections et les FAQ. Les rubriques peuvent être ajoutées ou retirées avec JavaScript ; des rubriques vides permettent aussi de compléter le formulaire sans JavaScript. Les FAQ d’articles sont affichées sur leur page publique.
+
+Pour une ville, le formulaire permet de renseigner les repères, les quartiers réellement desservis et la confirmation de couverture. Les validations de relecture, de couverture et d’entreprise restent obligatoires pour publier. Le formulaire conserve les sources, avis et photos existants. Le lien « Mode avancé (JSON) » permet toujours de modifier ces informations complémentaires. Enregistrez avant de changer de mode : ce changement recharge le contenu enregistré.
+
+Validation de cette évolution : 210 contrôles HTTP avec base isolée SQLite et validation de syntaxe PHP et JavaScript. Essai navigateur effectué : connexion, ajout/retrait de sections, ajout d’une FAQ, sauvegarde, déconnexion et affichage à 390 et 1366 pixels de largeur sans débordement horizontal. Les données de recette sont restées dans une base locale isolée.
+
+Prochaines étapes : ajout des coordonnées réelles de l’entreprise, puis création du site Hostinger et vérifications MySQL/HTTPS avant publication. L’ajout des sources et des preuves pourrait ensuite bénéficier de champs dédiés dans l’éditeur simple.
 
 ## Installation Hostinger
 
@@ -53,6 +63,8 @@ Le connecteur Hostinger a été consulté, mais **ce nouveau site n’existe pas
 Copier la configuration d’exemple et utiliser `environment: local` avec un DSN SQLite et les extensions pdo_sqlite et mbstring. Lancer `php scripts/init.php`, puis `php -S 127.0.0.1:8088 -t public scripts/router.php`.
 
 `php scripts/setup-local.php` génère un accès de test local conservé dans `.runtime/acces-local.json`, jamais versionné. La production doit avoir ses propres secrets.
+
+Tests : `python tests/integration.py /chemin/vers/php` utilise le `php.ini` placé à côté de l’exécutable s’il existe. Un second argument permet de fournir un autre `php.ini`. Sans argument, le script recherche PHP dans le PATH puis le runtime local Windows. Les extensions PDO SQLite et mbstring doivent être activées. Les données de test sont créées dans un sous-dossier privé de `var/`.
 
 `content/cities.json` contient les contenus initiaux et leurs sources géographiques. Après initialisation, l’administration modifie la base. Le générateur éditorial `scripts/build_content.py` reconstruit uniquement les fichiers sources, sans écraser la base. `scripts/sync-local.php` est réservé à la maquette et remplace les brouillons non validés : ne pas l’utiliser sur des contenus locaux personnalisés.
 
