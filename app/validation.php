@@ -29,9 +29,10 @@ function page_errors(array $p): array {
     if (!is_array($p['faq'] ?? [])) return array_merge($errors,['FAQ invalide.']);
     foreach ($p['sections'] ?? [] as $s) {
         if (!is_array($s) || !is_string($s['title'] ?? null) || !is_array($s['paragraphs'] ?? null)) { $errors[] = 'Section invalide.'; continue; }
+        if (trim($s['title'])==='' || !$s['paragraphs']) $errors[] = 'Chaque section doit avoir un titre et un texte.';
         foreach ($s['paragraphs'] as $v) if (!is_string($v)) $errors[] = 'Paragraphe invalide.';
     }
-    foreach ($p['faq'] ?? [] as $q) if (!is_array($q) || !is_string($q['question'] ?? null) || !is_string($q['answer'] ?? null)) $errors[] = 'FAQ invalide.';
+    foreach ($p['faq'] ?? [] as $q) if (!is_array($q) || !is_string($q['question'] ?? null) || !is_string($q['answer'] ?? null) || trim($q['question'])==='' || trim($q['answer'])==='') $errors[] = 'Chaque question doit avoir une réponse.';
     if (($p['kind'] ?? '') === 'city') {
         if (!is_string($p['city'] ?? null) || !is_string($p['postal_code']??null) || !preg_match('/^\d{5}$/D', $p['postal_code'])) $errors[] = 'Ville et code postal requis.';
         if (count($p['faq'] ?? []) < 4 || count($p['faq'] ?? []) > 6) $errors[] = 'La FAQ doit comporter de 4 à 6 questions.';

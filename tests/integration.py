@@ -8,14 +8,14 @@ from urllib.error import HTTPError, URLError
 import xml.etree.ElementTree as ET
 
 ROOT=Path(__file__).resolve().parents[1]
-PHP=Path(sys.argv[1] if len(sys.argv)>1 else ROOT/'.runtime/php/php.exe').resolve()
-INI=ROOT/'.runtime/php/php.ini'
+PHP=Path(sys.argv[1] if len(sys.argv)>1 else shutil.which('php') or ROOT/'.runtime/php/php.exe').resolve()
+INI=Path(sys.argv[2]) if len(sys.argv)>2 else PHP.parent/'php.ini'
 run=ROOT/'var'/('test-'+secrets.token_hex(5)); run.mkdir(parents=True)
 for directory in ['app','public','scripts','content']:
     shutil.copytree(ROOT/directory,run/directory)
 (run/'config').mkdir(); (run/'var').mkdir()
 token=secrets.token_hex(32); password=secrets.token_hex(20)
-basecmd=[str(PHP),'-c',str(INI)]
+basecmd=[str(PHP)]+(['-c',str(INI.resolve())] if INI.is_file() else [])
 adminhash=subprocess.check_output(basecmd+[str(ROOT/'scripts/credentials.php'),'admin'],input=password.encode()).decode().strip()
 config="<?php return ['environment'=>'production','admin_password_hash'=>%s,'api_token_hash'=>%s];" % (repr(adminhash),repr(hashlib.sha256(token.encode()).hexdigest()))
 (run/'config/local.php').write_text(config,encoding='utf-8')
@@ -127,6 +127,58 @@ try:
     draft=article.copy(); draft['slug']='brouillon-admin'; draft['status']='draft'
     req('/admin/?new=article',urlencode({'action':'save_page','csrf':csrf,'payload':json.dumps(draft),'status':'draft','original_slug':''}).encode(),form=True,session=True)
     check(json.loads(req('/api/v1/articles?slug=brouillon-admin',auth=True)[1])['article']['status']=='draft','Admin editor persists an article in database')
+    def simple_form(p, original=''):
+        fields={'action':'save_page','csrf':csrf,'editor_mode':'simple','kind':p['kind'],'original_slug':original,'status':'draft'}
+        for key in ['slug','title','meta_title','description','intro']:
+            fields[key]=p[key]
+        for i,section in enumerate(p['sections']):
+            fields[f'sections[{i}][title]']=section['title']
+            fields[f'sections[{i}][body]']='\n\n'.join(section['paragraphs'])
+        for i,q in enumerate(p.get('faq',[])):
+            for key in ['question','answer']: fields[f'faq[{i}][{key}]']=q[key]
+        if p['kind']=='city':
+            for key in ['city','postal_code','local_note','coverage_evidence']: fields[key]=p[key]
+            for key in ['districts','verified_districts','neighbors']: fields[key]='\n'.join(p[key])
+        return fields
+    status,body,h=req('/admin/?new=article',session=True)
+    check('name="meta_title"' in body and 'name="payload"' not in body,'New article uses readable fields by default')
+    simple=article.copy(); simple['slug']='article-editeur-simple'; simple['title']='Article avec formulaire'
+    simple['faq']=[{'question':'Une question utile ?', 'answer':'Une réponse relue pour ce conseil.'}]
+    fields=simple_form(simple)
+    fields['sections[2][title]']=''
+    fields['sections[2][body]']=''
+    result=req('/admin/?new=article',urlencode(fields).encode(),form=True,session=True)
+    check(result[0]==303,'Simple article editor saves successfully')
+    saved=json.loads(req('/api/v1/articles?slug='+simple['slug'],auth=True)[1])['article']
+    check(saved['sections']==simple['sections'] and saved['status']=='draft','Simple editor retains paragraphs and skips empty rows')
+    fields=simple_form(saved,saved['slug']); fields['sections[0][title]']=''
+    status,body,h=req('/admin/?edit='+saved['slug'],urlencode(fields).encode(),form=True,session=True)
+    check(status==200 and 'Chaque section doit avoir un titre' in body,'Incomplete section is rejected with an explanation')
+    check('Article avec formulaire' in body,'Validation failure preserves entered values')
+    fields=simple_form(saved,saved['slug']); fields['status']='published'
+    status,body,h=req('/admin/?edit='+saved['slug'],urlencode(fields).encode(),form=True,session=True)
+    check('Relecture éditoriale à valider.' in body,'Simple editor cannot bypass editorial validation')
+    fields['editorial_verified']='on'
+    check(req('/admin/?edit='+saved['slug'],urlencode(fields).encode(),form=True,session=True)[0]==303,'Reviewed simple article publishes')
+    check(req('/conseils/'+saved['slug']+'/')[0]==200,'Published form article is accessible')
+    public_html=req('/conseils/'+saved['slug']+'/')[1]
+    check('Une question utile ?' in public_html and 'Une réponse relue pour ce conseil.' in public_html,'Article FAQ is displayed on public page')
+    city=data[1].copy(); city.update(status='draft',coverage_evidence='Confirmation de test',verified_districts=city['districts'],coverage_verified=True,editorial_verified=True)
+    city['review']={'verified':False,'city':city['city'],'author':'Auteur conservé','text':'Preuve de test non publiée','source':''}
+    set_page(city)
+    fields=simple_form(city,city['slug']); fields['editorial_verified']='on'; fields['coverage_verified']='on'
+    fields['review[text]']='Valeur cachée non autorisée'
+    check(req('/admin/?edit='+city['slug'],urlencode(fields).encode(),form=True,session=True)[0]==303,'Simple city editor saves')
+    with database() as db:
+        city_saved=json.loads(db.execute('SELECT payload FROM pages WHERE slug=?',(city['slug'],)).fetchone()[0])
+    check(city_saved['sources']==city['sources'] and city_saved['review']==city['review'],'Simple city editor preserves sources and evidence from database')
+    fields=simple_form(city_saved,city['slug']); fields['status']='published'; fields['editorial_verified']='on'
+    status,body,h=req('/admin/?edit='+city['slug'],urlencode(fields).encode(),form=True,session=True)
+    check('Ville et quartiers réellement desservis à confirmer.' in body,'City publication requires explicit coverage confirmation')
+    fields['coverage_verified']='on'; fields['verified_districts']='Quartier absent des repères'
+    check('Un quartier confirmé est absent' in req('/admin/?edit='+city['slug'],urlencode(fields).encode(),form=True,session=True)[1],'Unknown covered district blocks publication')
+    status,body,h=req('/admin/?edit='+saved['slug']+'&advanced=1',session=True)
+    check('name="payload"' in body and 'name="editor_mode"' not in body,'Advanced JSON remains available')
     check(req('/admin/',b'action=logout&csrf=invalid',form=True,session=True)[0]==403,'Authenticated mutation rejects invalid CSRF')
     req('/admin/',urlencode({'action':'logout','csrf':csrf}).encode(),form=True,session=True)
     check('Votre présence locale.' not in req('/admin/',session=True)[1],'Logout removes authenticated access')
